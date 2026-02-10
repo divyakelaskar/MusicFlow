@@ -35,28 +35,80 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
   }, [currentSong?.id]);
 
   // Control playback when isPlaying changes
-  useEffect(() => {
+  // Handle song change and auto-play
+useEffect(() => {
+  if (currentSong && audioRef.current) {
     const audio = audioRef.current;
-    if (!audio || !currentSong) return;
-
-    const controlPlayback = async () => {
-      try {
-        if (playlist.isPlaying) {
-          await audio.play();
-        } else {
-          audio.pause();
+    
+    // Only reset and reload if it's a different song
+    if (audio.src !== URL.createObjectURL(currentSong.file)) {
+      setCurrentTime(0);
+      setAudioError(null);
+      
+      // Update the audio source
+      audio.src = URL.createObjectURL(currentSong.file);
+      audio.load();
+      
+      // Auto-play when song changes if playlist isPlaying is true
+      if (playlist.isPlaying) {
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            // This is expected if user interacts before audio can play
+            if (error.name !== 'AbortError') {
+              console.error('Auto-play failed:', error);
+            }
+          });
         }
-      } catch (error) {
+      }
+    }
+  }
+}, [currentSong?.id]);
+
+// Handle play/pause state changes for the same song
+useEffect(() => {
+  const audio = audioRef.current;
+  if (!audio || !currentSong) return;
+
+  // Skip if we just changed songs (audio.src might not be set yet)
+  if (!audio.src) return;
+
+  const controlPlayback = async () => {
+    try {
+      if (playlist.isPlaying) {
+        // If audio is already playing, don't restart it
+        if (audio.paused) {
+          const playPromise = audio.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              if (error.name !== 'AbortError') {
+                setAudioError('Failed to play audio: ' + error.message);
+                onPlaylistUpdate({
+                  ...playlist,
+                  isPlaying: false
+                });
+              }
+            });
+          }
+        }
+      } else {
+        audio.pause();
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
         setAudioError('Failed to play audio: ' + (error as Error).message);
         onPlaylistUpdate({
           ...playlist,
           isPlaying: false
         });
       }
-    };
+    }
+  };
 
-    controlPlayback();
-  }, [playlist.isPlaying, currentSong]);
+  controlPlayback();
+}, [playlist.isPlaying, currentSong]);
 
   // Apply playback rate
   useEffect(() => {
@@ -72,103 +124,156 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
     }
   }, [isMuted]);
 
-  // Reset audio when song changes and auto-play if needed
-useEffect(() => {
-  if (currentSong && audioRef.current) {
-    setCurrentTime(0);
-    setAudioError(null);
-    const audio = audioRef.current;
-    
-    // Load the new audio source
-    audio.load();
-    
-    // Auto-play when song changes if playlist isPlaying is true
-    if (playlist.isPlaying) {
-      const playAudio = async () => {
-        try {
-          // Small delay to ensure audio is loaded
-          await new Promise(resolve => setTimeout(resolve, 50));
-          await audio.play();
-        } catch (error) {
-          console.error('Auto-play failed:', error);
-          // If auto-play fails, keep the playlist state as playing
-          // The user might need to interact with the page first
+  // Handle song change and auto-play
+  useEffect(() => {
+    if (currentSong && audioRef.current) {
+      const audio = audioRef.current;
+
+      // Only reset and reload if it's a different song
+      if (audio.src !== URL.createObjectURL(currentSong.file)) {
+        setCurrentTime(0);
+        setAudioError(null);
+
+        // Update the audio source
+        audio.src = URL.createObjectURL(currentSong.file);
+        audio.load();
+
+        // Auto-play when song changes if playlist isPlaying is true
+        if (playlist.isPlaying) {
+          const playAudio = async () => {
+            try {
+              await audio.play();
+            } catch (error) {
+              console.error('Auto-play failed:', error);
+            }
+          };
+          playAudio();
         }
-      };
-      playAudio();
+      }
     }
-  }
-}, [currentSong?.id, playlist.isPlaying]);
+  }, [currentSong?.id]);
 
-  const handlePlayPause = useCallback(async () => {
-    if (!currentSong) return;
-
+  // Handle play/pause state changes for the same song
+  useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !currentSong) return;
 
-    try {
-      if (playlist.isPlaying) {
-        audio.pause();
+    // Only control playback if we're not changing songs
+    const controlPlayback = async () => {
+      try {
+        if (playlist.isPlaying) {
+          // If audio is already playing, don't restart it
+          if (audio.paused) {
+            await audio.play();
+          }
+        } else {
+          audio.pause();
+        }
+      } catch (error) {
+        setAudioError('Failed to play audio: ' + (error as Error).message);
         onPlaylistUpdate({
           ...playlist,
           isPlaying: false
         });
-      } else {
-        if (audioError) {
-          audio.load();
-          setAudioError(null);
-        }
-        await audio.play();
-        onPlaylistUpdate({
-          ...playlist,
-          isPlaying: true
-        });
       }
-    } catch (error) {
-      setAudioError('Playback failed: ' + (error as Error).message);
+    };
+
+    controlPlayback();
+  }, [playlist.isPlaying, currentSong]);
+
+  const handlePlayPause = useCallback(async () => {
+  if (!currentSong) return;
+
+  const audio = audioRef.current;
+  if (!audio) return;
+
+  try {
+    if (playlist.isPlaying) {
+      audio.pause();
       onPlaylistUpdate({
         ...playlist,
         isPlaying: false
       });
-    }
-  }, [playlist, currentSong, audioError, onPlaylistUpdate]);
-
-  const handleNext = useCallback(() => {
-    if (playlist.songs.length === 0) return;
-
-    let nextIndex;
-    if (isShuffled) {
-      // Get random index different from current
-      do {
-        nextIndex = Math.floor(Math.random() * playlist.songs.length);
-      } while (playlist.songs.length > 1 && nextIndex === playlist.currentSongIndex);
     } else {
-      nextIndex = playlist.currentSongIndex + 1;
+      // Only load if there's an error or no source
+      if (audioError || !audio.src) {
+        audio.src = URL.createObjectURL(currentSong.file);
+        audio.load();
+        setAudioError(null);
+      }
       
-      // If at the end
-      if (nextIndex >= playlist.songs.length) {
-        // If repeat all is on, go to first song
-        if (isRepeating === 'all') {
-          nextIndex = 0;
-        } else {
-          // No repeat, stay on last song but pause
-          nextIndex = playlist.currentSongIndex;
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          onPlaylistUpdate({
+            ...playlist,
+            isPlaying: true
+          });
+        }).catch(error => {
+          // Don't show AbortError to user
+          if (error.name !== 'AbortError') {
+            setAudioError('Playback failed: ' + error.message);
+          }
           onPlaylistUpdate({
             ...playlist,
             isPlaying: false
           });
-          return;
-        }
+        });
       }
     }
-
+  } catch (error) {
+    if ((error as Error).name !== 'AbortError') {
+      setAudioError('Playback failed: ' + (error as Error).message);
+    }
     onPlaylistUpdate({
       ...playlist,
-      currentSongIndex: nextIndex,
-      isPlaying: true // Auto-play next song
+      isPlaying: false
     });
-    setAudioError(null);
-  }, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
+  }
+}, [playlist, currentSong, audioError, onPlaylistUpdate]);
+
+  const handleNext = useCallback(() => {
+  if (playlist.songs.length === 0) return;
+
+  let nextIndex;
+  if (isShuffled) {
+    // Get random index different from current
+    do {
+      nextIndex = Math.floor(Math.random() * playlist.songs.length);
+    } while (playlist.songs.length > 1 && nextIndex === playlist.currentSongIndex);
+  } else {
+    nextIndex = playlist.currentSongIndex + 1;
+    
+    // If at the end
+    if (nextIndex >= playlist.songs.length) {
+      // If repeat all is on, go to first song
+      if (isRepeating === 'all') {
+        nextIndex = 0;
+      } else {
+        // No repeat, stay on last song but pause
+        nextIndex = playlist.currentSongIndex;
+        onPlaylistUpdate({
+          ...playlist,
+          isPlaying: false
+        });
+        return;
+      }
+    }
+  }
+
+  // Pause current audio before changing song to avoid race condition
+  if (audioRef.current) {
+    audioRef.current.pause();
+  }
+
+  onPlaylistUpdate({
+    ...playlist,
+    currentSongIndex: nextIndex,
+    isPlaying: true // Auto-play next song
+  });
+  setAudioError(null);
+}, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
 
   // Audio event handlers
   useEffect(() => {
@@ -201,7 +306,7 @@ useEffect(() => {
     const handleError = (e: Event) => {
       const error = audio.error;
       let errorMessage = 'Failed to load audio';
-      
+
       if (error) {
         switch (error.code) {
           case error.MEDIA_ERR_ABORTED:
@@ -220,7 +325,7 @@ useEffect(() => {
             errorMessage = 'Unknown audio error';
         }
       }
-      
+
       setAudioError(errorMessage);
     };
 
@@ -238,36 +343,41 @@ useEffect(() => {
   }, [currentSong, isDragging, isRepeating, handleNext]); // Added handleNext to dependencies
 
   const handlePrevious = useCallback(() => {
-    if (playlist.songs.length === 0) return;
+  if (playlist.songs.length === 0) return;
 
-    let prevIndex;
-    if (isShuffled) {
-      // Get random index different from current
-      do {
-        prevIndex = Math.floor(Math.random() * playlist.songs.length);
-      } while (playlist.songs.length > 1 && prevIndex === playlist.currentSongIndex);
-    } else {
-      prevIndex = playlist.currentSongIndex - 1;
-      
-      // If at the beginning
-      if (prevIndex < 0) {
-        // If repeat all is on, go to last song
-        if (isRepeating === 'all') {
-          prevIndex = playlist.songs.length - 1;
-        } else {
-          // No repeat, stay on first song
-          prevIndex = 0;
-        }
+  let prevIndex;
+  if (isShuffled) {
+    // Get random index different from current
+    do {
+      prevIndex = Math.floor(Math.random() * playlist.songs.length);
+    } while (playlist.songs.length > 1 && prevIndex === playlist.currentSongIndex);
+  } else {
+    prevIndex = playlist.currentSongIndex - 1;
+    
+    // If at the beginning
+    if (prevIndex < 0) {
+      // If repeat all is on, go to last song
+      if (isRepeating === 'all') {
+        prevIndex = playlist.songs.length - 1;
+      } else {
+        // No repeat, stay on first song
+        prevIndex = 0;
       }
     }
+  }
 
-    onPlaylistUpdate({
-      ...playlist,
-      currentSongIndex: prevIndex,
-      isPlaying: true // Auto-play previous song
-    });
-    setAudioError(null);
-  }, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
+  // Pause current audio before changing song to avoid race condition
+  if (audioRef.current) {
+    audioRef.current.pause();
+  }
+
+  onPlaylistUpdate({
+    ...playlist,
+    currentSongIndex: prevIndex,
+    isPlaying: true // Auto-play previous song
+  });
+  setAudioError(null);
+}, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
 
   // ... rest of the functions remain the same (handleSeekStart, handleSeek, handleSeekEnd, etc.)
 
@@ -347,7 +457,7 @@ useEffect(() => {
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-      
+
       switch (e.code) {
         case 'Space':
           e.preventDefault();
@@ -402,7 +512,7 @@ useEffect(() => {
       {audioError && (
         <div className="mb-3 p-2 rounded-lg text-sm" style={{ backgroundColor: `${colors.background}80`, color: colors.heading }}>
           <strong>Error:</strong> {audioError}
-          <button 
+          <button
             onClick={() => setAudioError(null)}
             className="ml-2 hover:opacity-70 transition-opacity"
             style={{ color: colors.heading }}
@@ -448,7 +558,7 @@ useEffect(() => {
             title="Skip Backward 10s"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.1 11h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82v.74zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/>
+              <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.1 11h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82v.74zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z" />
             </svg>
           </button>
 
@@ -463,7 +573,7 @@ useEffect(() => {
             title="Previous"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
             </svg>
           </button>
 
@@ -478,11 +588,11 @@ useEffect(() => {
           >
             {playlist.isPlaying ? (
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
             ) : (
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
+                <path d="M8 5v14l11-7z" />
               </svg>
             )}
           </button>
@@ -498,7 +608,7 @@ useEffect(() => {
             title="Next"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
             </svg>
           </button>
 
@@ -512,49 +622,47 @@ useEffect(() => {
             title="Skip Forward 10s"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M5.58 16.89l5.77-4.07c.56-.4.56-1.24 0-1.63L5.58 7.11C4.91 6.65 4 7.12 4 7.93v8.14c0 .81.91 1.28 1.58.82zM13 7.93v8.14c0 .81.91 1.28 1.58.82l5.77-4.07c.56-.4.56-1.24 0-1.63l-5.77-4.07c-.67-.47-1.58 0-1.58.82z"/>
+              <path d="M5.58 16.89l5.77-4.07c.56-.4.56-1.24 0-1.63L5.58 7.11C4.91 6.65 4 7.12 4 7.93v8.14c0 .81.91 1.28 1.58.82zM13 7.93v8.14c0 .81.91 1.28 1.58.82l5.77-4.07c.56-.4.56-1.24 0-1.63l-5.77-4.07c-.67-.47-1.58 0-1.58.82z" />
             </svg>
           </button>
 
           {/* Shuffle */}
           <button
             onClick={toggleShuffle}
-            className={`p-2 rounded-full transition-all duration-200 shadow-sm ${
-              isShuffled ? 'opacity-100' : 'opacity-70'
-            }`}
-            style={{ 
-              backgroundColor: isShuffled ? `${colors.heading}20` : `${colors.cardBackground}80`, 
-              color: colors.heading 
+            className={`p-2 rounded-full transition-all duration-200 shadow-sm ${isShuffled ? 'opacity-100' : 'opacity-70'
+              }`}
+            style={{
+              backgroundColor: isShuffled ? `${colors.heading}20` : `${colors.cardBackground}80`,
+              color: colors.heading
             }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardBackground}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isShuffled ? `${colors.heading}20` : `${colors.cardBackground}80`}
             title={isShuffled ? 'Disable Shuffle' : 'Enable Shuffle'}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+              <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
             </svg>
           </button>
 
           {/* Repeat */}
           <button
             onClick={toggleRepeat}
-            className={`p-2 rounded-full transition-all duration-200 shadow-sm ${
-              isRepeating ? 'opacity-100' : 'opacity-70'
-            }`}
-            style={{ 
-              backgroundColor: isRepeating ? `${colors.heading}20` : `${colors.cardBackground}80`, 
-              color: colors.heading 
+            className={`p-2 rounded-full transition-all duration-200 shadow-sm ${isRepeating ? 'opacity-100' : 'opacity-70'
+              }`}
+            style={{
+              backgroundColor: isRepeating ? `${colors.heading}20` : `${colors.cardBackground}80`,
+              color: colors.heading
             }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardBackground}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isRepeating ? `${colors.heading}20` : `${colors.cardBackground}80`}
             title={
-              isRepeating === 'all' ? 'Repeat All' : 
-              isRepeating === 'one' ? 'Repeat One' : 
-              'Repeat Off'
+              isRepeating === 'all' ? 'Repeat All' :
+                isRepeating === 'one' ? 'Repeat One' :
+                  'Repeat Off'
             }
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
               {isRepeating === 'one' && (
                 <text x="12" y="16" textAnchor="middle" fontSize="8" fontWeight="bold" fill="currentColor">1</text>
               )}
@@ -574,24 +682,24 @@ useEffect(() => {
           >
             {isMuted ? (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
               </svg>
             ) : volume > 0.5 ? (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
               </svg>
             ) : volume > 0 ? (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
+                <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" />
               </svg>
             ) : (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M7 9v6h4l5 5V4l-5 5H7z"/>
+                <path d="M7 9v6h4l5 5V4l-5 5H7z" />
               </svg>
             )}
           </button>
           <div className="w-24">
-  <style>{`
+            <style>{`
     #volume-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
@@ -614,21 +722,21 @@ useEffect(() => {
       box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
     }
   `}</style>
-  <input
-    id="volume-slider"
-    type="range"
-    min="0"
-    max="1"
-    step="0.01"
-    value={volume}
-    onChange={handleVolumeChange}
-    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-    style={{ 
-      backgroundColor: `${colors.cardBackground}80`,
-      backgroundImage: `linear-gradient(to right, ${colors.heading} ${volume * 100}%, #e2e2e2 ${volume * 100}%)`
-    }}
-  />
-</div>
+            <input
+              id="volume-slider"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volume}
+              onChange={handleVolumeChange}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+              style={{
+                backgroundColor: `${colors.cardBackground}80`,
+                backgroundImage: `linear-gradient(to right, ${colors.heading} ${volume * 100}%, #e2e2e2 ${volume * 100}%)`
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -640,11 +748,11 @@ useEffect(() => {
         </div>
         <div className="relative">
           <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${colors.cardBackground}80` }}>
-            <div 
+            <div
               className="h-full rounded-full transition-all duration-100"
-              style={{ 
+              style={{
                 backgroundColor: colors.heading,
-                width: `${getProgressPercentage()}%` 
+                width: `${getProgressPercentage()}%`
               }}
             />
           </div>
