@@ -36,79 +36,79 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
 
   // Control playback when isPlaying changes
   // Handle song change and auto-play
-useEffect(() => {
-  if (currentSong && audioRef.current) {
-    const audio = audioRef.current;
-    
-    // Only reset and reload if it's a different song
-    if (audio.src !== URL.createObjectURL(currentSong.file)) {
-      setCurrentTime(0);
-      setAudioError(null);
-      
-      // Update the audio source
-      audio.src = URL.createObjectURL(currentSong.file);
-      audio.load();
-      
-      // Auto-play when song changes if playlist isPlaying is true
-      if (playlist.isPlaying) {
-        const playPromise = audio.play();
-        
-        if (playPromise !== undefined) {
-          playPromise.catch(error => {
-            // This is expected if user interacts before audio can play
-            if (error.name !== 'AbortError') {
-              console.error('Auto-play failed:', error);
-            }
-          });
-        }
-      }
-    }
-  }
-}, [currentSong?.id]);
+  useEffect(() => {
+    if (currentSong && audioRef.current) {
+      const audio = audioRef.current;
 
-// Handle play/pause state changes for the same song
-useEffect(() => {
-  const audio = audioRef.current;
-  if (!audio || !currentSong) return;
+      // Only reset and reload if it's a different song
+      if (audio.src !== URL.createObjectURL(currentSong.file)) {
+        setCurrentTime(0);
+        setAudioError(null);
 
-  // Skip if we just changed songs (audio.src might not be set yet)
-  if (!audio.src) return;
+        // Update the audio source
+        audio.src = URL.createObjectURL(currentSong.file);
+        audio.load();
 
-  const controlPlayback = async () => {
-    try {
-      if (playlist.isPlaying) {
-        // If audio is already playing, don't restart it
-        if (audio.paused) {
+        // Auto-play when song changes if playlist isPlaying is true
+        if (playlist.isPlaying) {
           const playPromise = audio.play();
-          
+
           if (playPromise !== undefined) {
             playPromise.catch(error => {
+              // This is expected if user interacts before audio can play
               if (error.name !== 'AbortError') {
-                setAudioError('Failed to play audio: ' + error.message);
-                onPlaylistUpdate({
-                  ...playlist,
-                  isPlaying: false
-                });
+                console.error('Auto-play failed:', error);
               }
             });
           }
         }
-      } else {
-        audio.pause();
-      }
-    } catch (error) {
-      if ((error as Error).name !== 'AbortError') {
-        setAudioError('Failed to play audio: ' + (error as Error).message);
-        onPlaylistUpdate({
-          ...playlist,
-          isPlaying: false
-        });
       }
     }
-  };
+  }, [currentSong?.id]);
 
-  controlPlayback();
-}, [playlist.isPlaying, currentSong]);
+  // Handle play/pause state changes for the same song
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentSong) return;
+
+    // Skip if we just changed songs (audio.src might not be set yet)
+    if (!audio.src) return;
+
+    const controlPlayback = async () => {
+      try {
+        if (playlist.isPlaying) {
+          // If audio is already playing, don't restart it
+          if (audio.paused) {
+            const playPromise = audio.play();
+
+            if (playPromise !== undefined) {
+              playPromise.catch(error => {
+                if (error.name !== 'AbortError') {
+                  setAudioError('Failed to play audio: ' + error.message);
+                  onPlaylistUpdate({
+                    ...playlist,
+                    isPlaying: false
+                  });
+                }
+              });
+            }
+          }
+        } else {
+          audio.pause();
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          setAudioError('Failed to play audio: ' + (error as Error).message);
+          onPlaylistUpdate({
+            ...playlist,
+            isPlaying: false
+          });
+        }
+      }
+    };
+
+    controlPlayback();
+  }, [playlist.isPlaying, currentSong]);
 
   // Apply playback rate
   useEffect(() => {
@@ -182,98 +182,98 @@ useEffect(() => {
   }, [playlist.isPlaying, currentSong]);
 
   const handlePlayPause = useCallback(async () => {
-  if (!currentSong) return;
+    if (!currentSong) return;
 
-  const audio = audioRef.current;
-  if (!audio) return;
+    const audio = audioRef.current;
+    if (!audio) return;
 
-  try {
-    if (playlist.isPlaying) {
-      audio.pause();
-      onPlaylistUpdate({
-        ...playlist,
-        isPlaying: false
-      });
-    } else {
-      // Only load if there's an error or no source
-      if (audioError || !audio.src) {
-        audio.src = URL.createObjectURL(currentSong.file);
-        audio.load();
-        setAudioError(null);
-      }
-      
-      const playPromise = audio.play();
-      
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          onPlaylistUpdate({
-            ...playlist,
-            isPlaying: true
-          });
-        }).catch(error => {
-          // Don't show AbortError to user
-          if (error.name !== 'AbortError') {
-            setAudioError('Playback failed: ' + error.message);
-          }
-          onPlaylistUpdate({
-            ...playlist,
-            isPlaying: false
-          });
-        });
-      }
-    }
-  } catch (error) {
-    if ((error as Error).name !== 'AbortError') {
-      setAudioError('Playback failed: ' + (error as Error).message);
-    }
-    onPlaylistUpdate({
-      ...playlist,
-      isPlaying: false
-    });
-  }
-}, [playlist, currentSong, audioError, onPlaylistUpdate]);
-
-  const handleNext = useCallback(() => {
-  if (playlist.songs.length === 0) return;
-
-  let nextIndex;
-  if (isShuffled) {
-    // Get random index different from current
-    do {
-      nextIndex = Math.floor(Math.random() * playlist.songs.length);
-    } while (playlist.songs.length > 1 && nextIndex === playlist.currentSongIndex);
-  } else {
-    nextIndex = playlist.currentSongIndex + 1;
-    
-    // If at the end
-    if (nextIndex >= playlist.songs.length) {
-      // If repeat all is on, go to first song
-      if (isRepeating === 'all') {
-        nextIndex = 0;
-      } else {
-        // No repeat, stay on last song but pause
-        nextIndex = playlist.currentSongIndex;
+    try {
+      if (playlist.isPlaying) {
+        audio.pause();
         onPlaylistUpdate({
           ...playlist,
           isPlaying: false
         });
-        return;
+      } else {
+        // Only load if there's an error or no source
+        if (audioError || !audio.src) {
+          audio.src = URL.createObjectURL(currentSong.file);
+          audio.load();
+          setAudioError(null);
+        }
+
+        const playPromise = audio.play();
+
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            onPlaylistUpdate({
+              ...playlist,
+              isPlaying: true
+            });
+          }).catch(error => {
+            // Don't show AbortError to user
+            if (error.name !== 'AbortError') {
+              setAudioError('Playback failed: ' + error.message);
+            }
+            onPlaylistUpdate({
+              ...playlist,
+              isPlaying: false
+            });
+          });
+        }
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        setAudioError('Playback failed: ' + (error as Error).message);
+      }
+      onPlaylistUpdate({
+        ...playlist,
+        isPlaying: false
+      });
+    }
+  }, [playlist, currentSong, audioError, onPlaylistUpdate]);
+
+  const handleNext = useCallback(() => {
+    if (playlist.songs.length === 0) return;
+
+    let nextIndex;
+    if (isShuffled) {
+      // Get random index different from current
+      do {
+        nextIndex = Math.floor(Math.random() * playlist.songs.length);
+      } while (playlist.songs.length > 1 && nextIndex === playlist.currentSongIndex);
+    } else {
+      nextIndex = playlist.currentSongIndex + 1;
+
+      // If at the end
+      if (nextIndex >= playlist.songs.length) {
+        // If repeat all is on, go to first song
+        if (isRepeating === 'all') {
+          nextIndex = 0;
+        } else {
+          // No repeat, stay on last song but pause
+          nextIndex = playlist.currentSongIndex;
+          onPlaylistUpdate({
+            ...playlist,
+            isPlaying: false
+          });
+          return;
+        }
       }
     }
-  }
 
-  // Pause current audio before changing song to avoid race condition
-  if (audioRef.current) {
-    audioRef.current.pause();
-  }
+    // Pause current audio before changing song to avoid race condition
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
 
-  onPlaylistUpdate({
-    ...playlist,
-    currentSongIndex: nextIndex,
-    isPlaying: true // Auto-play next song
-  });
-  setAudioError(null);
-}, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
+    onPlaylistUpdate({
+      ...playlist,
+      currentSongIndex: nextIndex,
+      isPlaying: true // Auto-play next song
+    });
+    setAudioError(null);
+  }, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
 
   // Audio event handlers
   useEffect(() => {
@@ -343,41 +343,41 @@ useEffect(() => {
   }, [currentSong, isDragging, isRepeating, handleNext]); // Added handleNext to dependencies
 
   const handlePrevious = useCallback(() => {
-  if (playlist.songs.length === 0) return;
+    if (playlist.songs.length === 0) return;
 
-  let prevIndex;
-  if (isShuffled) {
-    // Get random index different from current
-    do {
-      prevIndex = Math.floor(Math.random() * playlist.songs.length);
-    } while (playlist.songs.length > 1 && prevIndex === playlist.currentSongIndex);
-  } else {
-    prevIndex = playlist.currentSongIndex - 1;
-    
-    // If at the beginning
-    if (prevIndex < 0) {
-      // If repeat all is on, go to last song
-      if (isRepeating === 'all') {
-        prevIndex = playlist.songs.length - 1;
-      } else {
-        // No repeat, stay on first song
-        prevIndex = 0;
+    let prevIndex;
+    if (isShuffled) {
+      // Get random index different from current
+      do {
+        prevIndex = Math.floor(Math.random() * playlist.songs.length);
+      } while (playlist.songs.length > 1 && prevIndex === playlist.currentSongIndex);
+    } else {
+      prevIndex = playlist.currentSongIndex - 1;
+
+      // If at the beginning
+      if (prevIndex < 0) {
+        // If repeat all is on, go to last song
+        if (isRepeating === 'all') {
+          prevIndex = playlist.songs.length - 1;
+        } else {
+          // No repeat, stay on first song
+          prevIndex = 0;
+        }
       }
     }
-  }
 
-  // Pause current audio before changing song to avoid race condition
-  if (audioRef.current) {
-    audioRef.current.pause();
-  }
+    // Pause current audio before changing song to avoid race condition
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
 
-  onPlaylistUpdate({
-    ...playlist,
-    currentSongIndex: prevIndex,
-    isPlaying: true // Auto-play previous song
-  });
-  setAudioError(null);
-}, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
+    onPlaylistUpdate({
+      ...playlist,
+      currentSongIndex: prevIndex,
+      isPlaying: true // Auto-play previous song
+    });
+    setAudioError(null);
+  }, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
 
   // ... rest of the functions remain the same (handleSeekStart, handleSeek, handleSeekEnd, etc.)
 
@@ -558,7 +558,7 @@ useEffect(() => {
             title="Skip Backward 10s"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8zm-1.1 11h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82v.74zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z" />
+              <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
             </svg>
           </button>
 
@@ -622,7 +622,7 @@ useEffect(() => {
             title="Skip Forward 10s"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M5.58 16.89l5.77-4.07c.56-.4.56-1.24 0-1.63L5.58 7.11C4.91 6.65 4 7.12 4 7.93v8.14c0 .81.91 1.28 1.58.82zM13 7.93v8.14c0 .81.91 1.28 1.58.82l5.77-4.07c.56-.4.56-1.24 0-1.63l-5.77-4.07c-.67-.47-1.58 0-1.58.82z" />
+              <path d="M12.01 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z" />
             </svg>
           </button>
 
