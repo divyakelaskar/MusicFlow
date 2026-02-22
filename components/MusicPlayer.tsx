@@ -27,6 +27,8 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
   const [isShuffled, setIsShuffled] = useState(false);
   const [isRepeating, setIsRepeating] = useState<RepeatMode>(false);
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   const currentSong = playlist.songs[playlist.currentSongIndex];
 
   // Reset error when song changes
@@ -340,7 +342,7 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
     };
-  }, [currentSong, isDragging, isRepeating, handleNext]); // Added handleNext to dependencies
+  }, [currentSong, isDragging, isRepeating, handleNext]);
 
   const handlePrevious = useCallback(() => {
     if (playlist.songs.length === 0) return;
@@ -378,8 +380,6 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
     });
     setAudioError(null);
   }, [playlist, isShuffled, isRepeating, onPlaylistUpdate]);
-
-  // ... rest of the functions remain the same (handleSeekStart, handleSeek, handleSeekEnd, etc.)
 
   const handleSeekStart = () => {
     setIsDragging(true);
@@ -522,27 +522,32 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
         </div>
       )}
 
-      {/* Main Player Controls - Horizontal Layout */}
-      <div className="flex-1 flex items-center justify-between space-x-6">
-        {/* Song Info */}
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-bold truncate" style={{ color: colors.heading }}>
-            {currentSong.id3Tags?.title || currentSong.name}
-          </h3>
-          <p className="truncate" style={{ color: colors.subtitle }}>
-            {currentSong.id3Tags?.artist || 'Unknown Artist'}
-          </p>
-        </div>
+      {/* Song Info - Always visible */}
+      <div className="flex-shrink-0 mb-2 lg:mb-0">
+        <h3 className="text-base lg:text-lg font-bold truncate" style={{ color: colors.heading }}>
+          {currentSong.id3Tags?.title || currentSong.name}
+        </h3>
+        <p className="text-sm lg:text-base truncate" style={{ color: colors.subtitle }}>
+          {currentSong.id3Tags?.artist || 'Unknown Artist'}
+        </p>
+      </div>
 
-        {/* Advanced Controls */}
-        <div className="flex items-center space-x-4">
+      {/* Horizontal Scroll Container for Controls */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-x-auto overflow-y-hidden min-h-0 pb-2 hide-scrollbar"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        {/* Main Player Controls - Horizontal Layout with Flex Nowrap */}
+        <div className="flex items-center space-x-4 min-w-max px-1">
           {/* Playback Rate */}
           <button
             onClick={changePlaybackRate}
-            className="p-2 rounded-lg transition-all duration-200 shadow-sm text-sm font-medium"
+            className="p-2 rounded-lg transition-all duration-200 shadow-sm text-sm font-medium flex-shrink-0"
             style={{ backgroundColor: `${colors.cardBackground}80`, color: colors.heading }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardBackground}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.cardBackground}80`}
             title={`Playback Speed: ${playbackRate}x`}
           >
             {playbackRate}x
@@ -551,10 +556,8 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
           {/* Skip Backward */}
           <button
             onClick={skipBackward}
-            className="p-2 rounded-full transition-all duration-200 shadow-sm"
+            className="p-2 rounded-full transition-all duration-200 shadow-sm flex-shrink-0"
             style={{ backgroundColor: `${colors.cardBackground}80`, color: colors.heading }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardBackground}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.cardBackground}80`}
             title="Skip Backward 10s"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -566,10 +569,8 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
           <button
             onClick={handlePrevious}
             disabled={playlist.songs.length <= 1 || (!isShuffled && !isRepeating && playlist.currentSongIndex === 0)}
-            className="p-2 rounded-full transition-all duration-200 shadow-sm disabled:opacity-30"
+            className="p-2 rounded-full transition-all duration-200 shadow-sm disabled:opacity-30 flex-shrink-0"
             style={{ backgroundColor: `${colors.cardBackground}80`, color: colors.heading }}
-            onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = colors.cardBackground)}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.cardBackground}80`}
             title="Previous"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -580,18 +581,16 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
           {/* Play/Pause */}
           <button
             onClick={handlePlayPause}
-            className="p-4 rounded-full shadow-lg transition-all duration-200"
+            className="p-3 lg:p-4 rounded-full shadow-lg transition-all duration-200 flex-shrink-0"
             style={{ backgroundColor: colors.heading, color: colors.cardBackground }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             title={playlist.isPlaying ? 'Pause' : 'Play'}
           >
             {playlist.isPlaying ? (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 lg:w-6 lg:h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
             ) : (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 lg:w-6 lg:h-6" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
@@ -601,10 +600,8 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
           <button
             onClick={handleNext}
             disabled={playlist.songs.length <= 1 || (!isShuffled && !isRepeating && playlist.currentSongIndex === playlist.songs.length - 1)}
-            className="p-2 rounded-full transition-all duration-200 shadow-sm disabled:opacity-30"
+            className="p-2 rounded-full transition-all duration-200 shadow-sm disabled:opacity-30 flex-shrink-0"
             style={{ backgroundColor: `${colors.cardBackground}80`, color: colors.heading }}
-            onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = colors.cardBackground)}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.cardBackground}80`}
             title="Next"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -615,10 +612,8 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
           {/* Skip Forward */}
           <button
             onClick={skipForward}
-            className="p-2 rounded-full transition-all duration-200 shadow-sm"
+            className="p-2 rounded-full transition-all duration-200 shadow-sm flex-shrink-0"
             style={{ backgroundColor: `${colors.cardBackground}80`, color: colors.heading }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardBackground}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${colors.cardBackground}80`}
             title="Skip Forward 10s"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -629,14 +624,11 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
           {/* Shuffle */}
           <button
             onClick={toggleShuffle}
-            className={`p-2 rounded-full transition-all duration-200 shadow-sm ${isShuffled ? 'opacity-100' : 'opacity-70'
-              }`}
+            className={`p-2 rounded-full transition-all duration-200 shadow-sm flex-shrink-0 ${isShuffled ? 'opacity-100' : 'opacity-70'}`}
             style={{
               backgroundColor: isShuffled ? `${colors.heading}20` : `${colors.cardBackground}80`,
               color: colors.heading
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardBackground}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isShuffled ? `${colors.heading}20` : `${colors.cardBackground}80`}
             title={isShuffled ? 'Disable Shuffle' : 'Enable Shuffle'}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -647,14 +639,11 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
           {/* Repeat */}
           <button
             onClick={toggleRepeat}
-            className={`p-2 rounded-full transition-all duration-200 shadow-sm ${isRepeating ? 'opacity-100' : 'opacity-70'
-              }`}
+            className={`p-2 rounded-full transition-all duration-200 shadow-sm flex-shrink-0 ${isRepeating ? 'opacity-100' : 'opacity-70'}`}
             style={{
               backgroundColor: isRepeating ? `${colors.heading}20` : `${colors.cardBackground}80`,
               color: colors.heading
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.cardBackground}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isRepeating ? `${colors.heading}20` : `${colors.cardBackground}80`}
             title={
               isRepeating === 'all' ? 'Repeat All' :
                 isRepeating === 'one' ? 'Repeat One' :
@@ -668,86 +657,89 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
               )}
             </svg>
           </button>
-        </div>
 
-        {/* Volume Control */}
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={toggleMute}
-            className="p-1 rounded-full transition-colors"
-            style={{ color: colors.heading }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${colors.cardBackground}80`}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            title={isMuted ? 'Unmute' : 'Mute'}
-          >
-            {isMuted ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-              </svg>
-            ) : volume > 0.5 ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-              </svg>
-            ) : volume > 0 ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M7 9v6h4l5 5V4l-5 5H7z" />
-              </svg>
-            )}
-          </button>
-          <div className="w-24">
-            <style>{`
-    #volume-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: ${colors.heading};
-      cursor: pointer;
-      border: 2px solid white;
-      box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-    }
-    
-    #volume-slider::-moz-range-thumb {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: ${colors.heading};
-      cursor: pointer;
-      border: 2px solid white;
-      box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-    }
-  `}</style>
-            <input
-              id="volume-slider"
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={volume}
-              onChange={handleVolumeChange}
-              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-              style={{
-                backgroundColor: `${colors.cardBackground}80`,
-                backgroundImage: `linear-gradient(to right, ${colors.heading} ${volume * 100}%, #e2e2e2 ${volume * 100}%)`
-              }}
-            />
+          {/* Volume Control - Grouped */}
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <button
+              onClick={toggleMute}
+              className="p-1 rounded-full transition-colors"
+              style={{ color: colors.heading }}
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+                </svg>
+              ) : volume > 0.5 ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                </svg>
+              ) : volume > 0 ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M7 9v6h4l5 5V4l-5 5H7z" />
+                </svg>
+              )}
+            </button>
+            <div className="w-20 lg:w-24">
+              <style>{`
+                #volume-slider::-webkit-slider-thumb {
+                  -webkit-appearance: none;
+                  appearance: none;
+                  width: 14px;
+                  height: 14px;
+                  border-radius: 50%;
+                  background: ${colors.heading};
+                  cursor: pointer;
+                  border: 2px solid white;
+                  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+                }
+                
+                #volume-slider::-moz-range-thumb {
+                  width: 14px;
+                  height: 14px;
+                  border-radius: 50%;
+                  background: ${colors.heading};
+                  cursor: pointer;
+                  border: 2px solid white;
+                  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+                }
+
+                /* Hide scrollbar for Chrome/Safari */
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+              `}</style>
+              <input
+                id="volume-slider"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
+                onChange={handleVolumeChange}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  backgroundColor: `${colors.cardBackground}80`,
+                  backgroundImage: `linear-gradient(to right, ${colors.heading} ${volume * 100}%, #e2e2e2 ${volume * 100}%)`
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="mt-4">
-        <div className="flex justify-between text-sm mb-2">
+      <div className="mt-2 lg:mt-4 flex-shrink-0">
+        <div className="flex justify-between text-xs lg:text-sm mb-1">
           <span style={{ color: colors.subtitle }}>{formatTime(currentTime)}</span>
           <span style={{ color: colors.subtitle }}>{formatTime(duration)}</span>
         </div>
         <div className="relative">
-          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${colors.cardBackground}80` }}>
+          <div className="h-1.5 lg:h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${colors.cardBackground}80` }}>
             <div
               className="h-full rounded-full transition-all duration-100"
               style={{
@@ -766,7 +758,7 @@ export default function MusicPlayer({ playlist, onPlaylistUpdate, colors }: Musi
             onMouseUp={handleSeekEnd}
             onTouchStart={handleSeekStart}
             onTouchEnd={handleSeekEnd}
-            className="absolute top-0 left-0 w-full h-2 opacity-0 cursor-pointer"
+            className="absolute top-0 left-0 w-full h-1.5 lg:h-2 opacity-0 cursor-pointer"
           />
         </div>
       </div>

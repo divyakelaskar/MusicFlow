@@ -38,6 +38,8 @@ export default function PlayerPage() {
         subtitle: 'rgb(107, 114, 128)'
     });
 
+    const [mobileView, setMobileView] = useState<'player' | 'info' | 'playlist'>('player');
+
     // Load ID3 tags for all songs when files are selected
     useEffect(() => {
         const loadAllID3Tags = async () => {
@@ -228,8 +230,43 @@ export default function PlayerPage() {
             className="min-h-screen flex flex-col transition-colors duration-500"
             style={{ backgroundColor: colors.background }}
         >
-            {/* Top Section - 3/4 of screen */}
-            <div className="flex-1 flex" style={{ height: '75vh' }}>
+            {/* Mobile Navigation Tabs */}
+            <div className="lg:hidden flex justify-around p-2 bg-white/90 backdrop-blur-sm border-b sticky top-0 z-10"
+                style={{ backgroundColor: colors.cardBackground }}>
+                <button
+                    onClick={() => setMobileView('player')}
+                    className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${mobileView === 'player' ? 'shadow-md' : 'opacity-70'}`}
+                    style={{ 
+                        backgroundColor: mobileView === 'player' ? colors.heading : 'transparent',
+                        color: mobileView === 'player' ? colors.cardBackground : colors.heading
+                    }}
+                >
+                    Player
+                </button>
+                <button
+                    onClick={() => setMobileView('info')}
+                    className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${mobileView === 'info' ? 'shadow-md' : 'opacity-70'}`}
+                    style={{ 
+                        backgroundColor: mobileView === 'info' ? colors.heading : 'transparent',
+                        color: mobileView === 'info' ? colors.cardBackground : colors.heading
+                    }}
+                >
+                    Info
+                </button>
+                <button
+                    onClick={() => setMobileView('playlist')}
+                    className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${mobileView === 'playlist' ? 'shadow-md' : 'opacity-70'}`}
+                    style={{ 
+                        backgroundColor: mobileView === 'playlist' ? colors.heading : 'transparent',
+                        color: mobileView === 'playlist' ? colors.cardBackground : colors.heading
+                    }}
+                >
+                    Playlist
+                </button>
+            </div>
+
+            {/* Desktop: Original 3-column layout */}
+            <div className="hidden lg:flex flex-1" style={{ height: '75vh' }}>
                 {/* Left Column - Album Art (1/3 of top section) */}
                 <div className="flex-1 flex items-center justify-center p-8">
                     <div className="relative w-full max-w-2xl aspect-square">
@@ -442,11 +479,178 @@ export default function PlayerPage() {
                 </div>
             </div>
 
-            {/* Bottom Section - Music Player (1/4 of screen) */}
-            <div className="flex-shrink-0" style={{ height: '25vh' }}>
-                <div className="h-full px-8 pb-8">
+            {/* Mobile: Dynamic View Based on Selection */}
+            <div className="lg:hidden flex-1 overflow-y-auto pb-[30vh]">
+                {mobileView === 'player' && (
+                    <div className="p-4">
+                        {/* Album Art */}
+                        <div className="mb-6">
+                            <div className="relative w-full max-w-md mx-auto aspect-square">
+                                {currentSong?.albumArt ? (
+                                    <img
+                                        src={currentSong.albumArt}
+                                        alt="Album Art"
+                                        className="w-full h-full object-cover rounded-3xl shadow-2xl"
+                                        crossOrigin="anonymous"
+                                        onError={(e) => {
+                                            console.error('Error loading album art:', e);
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                ) : (
+                                    <div
+                                        className="w-full h-full rounded-3xl shadow-2xl flex items-center justify-center"
+                                        style={{ backgroundColor: colors.accent }}
+                                    >
+                                        <span
+                                            className="text-6xl"
+                                            style={{ color: colors.background }}
+                                        >
+                                            🎵
+                                        </span>
+                                        <div className="absolute bottom-4 text-white text-sm">
+                                            {currentSong?.id3Tags ? 'No album art' : 'Loading...'}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Current Song Info */}
+                        <div className="text-center mb-4">
+                            <h3 className="text-xl font-semibold mb-1" style={{ color: colors.heading }}>
+                                {currentSong?.id3Tags?.title || currentSong?.name || 'Unknown Title'}
+                            </h3>
+                            <p className="text-base" style={{ color: colors.subtitle }}>
+                                {currentSong?.artist || 'Unknown Artist'}
+                            </p>
+                            <p className="text-sm" style={{ color: colors.subtitle }}>
+                                {currentSong?.album || 'Unknown Album'}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {mobileView === 'info' && (
+                    <div className="p-4">
+                        <div
+                            className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-xl"
+                            style={{ backgroundColor: colors.cardBackground }}
+                        >
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-2xl font-bold" style={{ color: colors.heading }}>
+                                    Track Information
+                                </h2>
+                                <DisplaySettings
+                                    settings={playlist.displaySettings}
+                                    onSettingsChange={(newSettings) => setPlaylist(prev => ({ ...prev, displaySettings: newSettings }))}
+                                    colors={colors}
+                                />
+                            </div>
+
+                            {currentSong?.id3Tags ? (
+                                <div className="space-y-4">
+                                    {/* ID3 Tags Grid */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {currentSong.id3Tags.year && playlist.displaySettings.showYear && (
+                                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.background}30` }}>
+                                                <span className="text-xs font-semibold block" style={{ color: colors.heading }}>Year</span>
+                                                <span style={{ color: colors.subtitle }}>{currentSong.id3Tags.year}</span>
+                                            </div>
+                                        )}
+                                        
+                                        {currentSong.id3Tags.genre && playlist.displaySettings.showGenre && (
+                                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.background}30` }}>
+                                                <span className="text-xs font-semibold block" style={{ color: colors.heading }}>Genre</span>
+                                                <span style={{ color: colors.subtitle }}>
+                                                    {Array.isArray(currentSong.id3Tags.genre) 
+                                                        ? currentSong.id3Tags.genre.join(', ')
+                                                        : currentSong.id3Tags.genre}
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        {currentSong.id3Tags.composer && playlist.displaySettings.showComposer && (
+                                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.background}30` }}>
+                                                <span className="text-xs font-semibold block" style={{ color: colors.heading }}>Composer</span>
+                                                <span style={{ color: colors.subtitle }}>{currentSong.id3Tags.composer}</span>
+                                            </div>
+                                        )}
+                                        
+                                        {currentSong.id3Tags.track && playlist.displaySettings.showTrackNumber && (
+                                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.background}30` }}>
+                                                <span className="text-xs font-semibold block" style={{ color: colors.heading }}>Track</span>
+                                                <span style={{ color: colors.subtitle }}>
+                                                    {currentSong.id3Tags.totalTracks 
+                                                        ? `${currentSong.id3Tags.track} of ${currentSong.id3Tags.totalTracks}`
+                                                        : currentSong.id3Tags.track}
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        {currentSong.id3Tags.duration && playlist.displaySettings.showDuration && (
+                                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.background}30` }}>
+                                                <span className="text-xs font-semibold block" style={{ color: colors.heading }}>Duration</span>
+                                                <span style={{ color: colors.subtitle }}>
+                                                    {`${Math.floor(currentSong.id3Tags.duration / 60)}:${Math.floor(currentSong.id3Tags.duration % 60).toString().padStart(2, '0')}`}
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        {currentSong.id3Tags.comment && playlist.displaySettings.showComment && (
+                                            <div className="col-span-2 p-2 rounded-lg" style={{ backgroundColor: `${colors.background}30` }}>
+                                                <span className="text-xs font-semibold block" style={{ color: colors.heading }}>Comment</span>
+                                                <span style={{ color: colors.subtitle }}>{currentSong.id3Tags.comment}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Lyrics */}
+                                    {currentSong.id3Tags.lyrics && playlist.displaySettings.showLyrics && (
+                                        <div className="pt-3 border-t" style={{ borderColor: colors.subtitle + '30' }}>
+                                            <h4 className="text-lg font-bold mb-2" style={{ color: colors.heading }}>Lyrics</h4>
+                                            <div
+                                                style={{ color: colors.subtitle }}
+                                                className="text-sm bg-gray-50/50 p-3 rounded-lg whitespace-pre-line max-h-40 overflow-y-auto"
+                                            >
+                                                {currentSong.id3Tags.lyrics}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-center py-4" style={{ color: colors.subtitle }}>Loading ID3 tags...</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {mobileView === 'playlist' && (
+                    <div className="p-4">
+                        <div
+                            className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-xl"
+                            style={{ backgroundColor: colors.cardBackground }}
+                        >
+                            <h2 className="text-2xl font-bold mb-4" style={{ color: colors.heading }}>
+                                Playlist
+                            </h2>
+                            <PlaylistQueue
+                                songs={playlist.songs}
+                                currentSongIndex={playlist.currentSongIndex}
+                                onReorder={handleReorder}
+                                onRemove={handleRemove}
+                                colors={colors}
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Bottom Section - Music Player (Fixed at bottom for mobile) */}
+            <div className="lg:flex-shrink-0 fixed bottom-0 left-0 right-0 lg:relative z-20" style={{ height: '25vh' }}>
+                <div className="h-full px-4 lg:px-8 pb-4 lg:pb-8">
                     <div
-                        className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 h-full shadow-xl"
+                        className="bg-white/90 backdrop-blur-sm rounded-3xl p-4 lg:p-6 h-full shadow-xl"
                         style={{ backgroundColor: colors.cardBackground }}
                     >
                         <MusicPlayer
